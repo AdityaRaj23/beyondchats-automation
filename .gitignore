@@ -1,2 +1,13 @@
+# Environment files
+.env
 .env.local
 
+# PocketBase
+backend/**/pb_data/
+backend/**/pocketbase
+
+# Node
+node_modules/
+
+# Logs
+*.log
