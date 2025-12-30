@@ -1,28 +1,27 @@
+import { chromium } from "playwright";
 import axios from "axios";
-import * as cheerio from "cheerio";
 import slugify from "slugify";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
-/* ================================
+/* =========================
    ENV SETUP (ESM SAFE)
-================================ */
+========================= */
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 dotenv.config({ path: path.join(__dirname, "../../.env.local") });
 
-/* ================================
+/* =========================
    CONSTANTS
-================================ */
+========================= */
 const PB_URL = "http://127.0.0.1:8090";
-const BASE_URL = "https://beyondchats.com";
 const LISTING_URL = "https://beyondchats.com/blogs/page/14/";
+const BASE_URL = "https://beyondchats.com";
 
-/* ================================
-   AUTHENTICATE POCKETBASE
-================================ */
+/* =========================
+   LOGIN TO POCKETBASE
+========================= */
 async function loginAdmin() {
     const email = process.env.PB_ADMIN_EMAIL;
     const password = process.env.PB_ADMIN_PASSWORD;
@@ -39,176 +38,155 @@ async function loginAdmin() {
     return res.data.token;
 }
 
-/* ================================
-   SCRAPE BLOG LISTING PAGE
-================================ */
-async function fetchBlogLinks() {
-    const { data } = await axios.get(LISTING_URL);
-    const $ = cheerio.load(data);
-
-    const links = [];
-
-    $("article.entry-card .entry-title a").each((_, el) => {
-        const href = $(el).attr("href");
-        if (href) {
-            links.push(href.startsWith("http") ? href : `${BASE_URL}${href}`);
-        }
+/* =========================
+   SCRAPE BLOG LISTING
+========================= */
+async function fetchBlogLinks(page) {
+    await page.goto(LISTING_URL, {
+        waitUntil: "networkidle",
+        timeout: 60000,
     });
 
-    return [...new Set(links)]; // remove duplicates
+    await page.waitForSelector("article.entry-card");
+
+    const links = await page.evaluate(() => {
+        return Array.from(
+            document.querySelectorAll(
+                "article.entry-card .entry-title a"
+            )
+        ).map(a => a.href);
+    });
+
+    return [...new Set(links)];
 }
 
-async function scrapeBlogPage(url) {
-    const { data } = await axios.get(url, {
-        headers: {
-            "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120",
-        },
+/* =========================
+   SCRAPE FULL BLOG CONTENT
+========================= */
+async function scrapeBlog(page, url) {
+    await page.goto(url, {
+        waitUntil: "domcontentloaded",
+        timeout: 60000,
     });
 
-    const $ = cheerio.load(data);
+    // ✅ Wait for the EXACT content container you shared
+    await page.waitForSelector(
+        "#content .elementor-widget-theme-post-content",
+        { timeout: 30000 }
+    );
 
-    /* --------------------
-       METADATA (works already)
-    -------------------- */
+    // Scroll once to ensure images/widgets load
+    await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+    });
+    await page.waitForTimeout(1500);
 
-    const title =
-        $("h1.entry-title").first().text().trim() ||
-        $('meta[property="og:title"]').attr("content");
+    const article = await page.evaluate(() => {
+        const title =
+            document.querySelector("h1")?.innerText?.trim();
 
-    const author =
-        $('meta[name="twitter:data1"]').attr("content") ||
-        $("a[rel='author']").first().text().trim();
+        const root = document.querySelector(
+            "#content .elementor-widget-theme-post-content"
+        );
 
-    const published_at =
-        $('meta[property="article:published_time"]').attr("content");
+        if (!root) return { title, content: "" };
 
-    const image =
-        $('meta[property="og:image"]').attr("content");
+        const blocks = [];
 
-    const canonical =
-        $('link[rel="canonical"]').attr("href") || url;
+        root.querySelectorAll("h2, h3, h4, p, li").forEach(el => {
+            // ❌ Skip social/share/footer junk
+            if (
+                el.closest(".has-social-placeholder") ||
+                el.closest(".wp-applause-container") ||
+                el.closest(".elementor-share-buttons")
+            ) {
+                return;
+            }
 
-    const tags = [];
-    $('meta[property="article:tag"]').each((_, el) => {
-        tags.push($(el).attr("content"));
+            const text = el.innerText
+                .replace(/\s+/g, " ")
+                .trim();
+
+            if (text.length > 30) {
+                blocks.push(text);
+            }
+        });
+
+        return {
+            title,
+            content: blocks.join("\n\n"),
+        };
     });
 
-    /* --------------------
-       ✅ FIXED CONTENT EXTRACTION
-    -------------------- */
-
-    let finalContent = "";
-
-    // STEP 1: Get raw HTML of article body
-    const rawHtml =
-        $(".entry-content").html() ||
-        $("article").html();
-
-    if (!rawHtml) {
-        throw new Error("Article HTML not found");
-    }
-
-    // STEP 2: Parse raw HTML separately
-    const $$ = cheerio.load(rawHtml);
-
-    // STEP 3: Remove junk
-    $$(
-        "script, style, nav, footer, aside, iframe, .ct-share-box, .elementor-widget-divider"
-    ).remove();
-
-    // STEP 4: Collect real readable content
-    const chunks = [];
-
-    $$("h2, h3, h4, p, li").each((_, el) => {
-        const text = $$(el)
-            .text()
-            .replace(/\s+/g, " ")
-            .trim();
-
-        if (text.length > 30) {
-            chunks.push(text);
-        }
-    });
-
-    finalContent = chunks.join("\n\n");
-
-    /* --------------------
-       HARD FALLBACK (SEO meta)
-    -------------------- */
-
-    if (finalContent.length < 200) {
-        const metaDesc = $('meta[name="description"]').attr("content");
-        if (metaDesc) {
-            finalContent = metaDesc;
-        }
-    }
-
-    if (!finalContent || finalContent.length < 100) {
-        throw new Error("Content extraction failed");
+    if (!article.content || article.content.length < 500) {
+        throw new Error("Content extraction failed (empty or too short)");
     }
 
     return {
-        title,
-        slug: slugify(title, { lower: true, strict: true }),
-        original_content: finalContent,
-        author,
-        published_at,
-        tags,
-        image,
-        source_url: canonical,
+        title: article.title,
+        slug: slugify(article.title, { lower: true, strict: true }),
+        original_content: article.content,
+        source_url: url,
         status: "original",
     };
 }
 
 
 
-/* ================================
+/* =========================
    SAVE TO POCKETBASE
-================================ */
+========================= */
 async function saveArticle(token, article) {
     await axios.post(
         `${PB_URL}/api/collections/articles/records`,
         article,
         {
-            headers: {
-                Authorization: token,
-            },
+            headers: { Authorization: token },
         }
     );
 }
 
-/* ================================
+/* =========================
    MAIN RUNNER
-================================ */
+========================= */
 async function run() {
-    try {
-        console.log("🔐 Logging into PocketBase...");
-        const token = await loginAdmin();
-        console.log("✅ Authenticated");
+    console.log("🚀 Starting scraper");
 
-        console.log("🔍 Fetching blog links...");
-        const links = await fetchBlogLinks();
-        console.log(`✅ Found ${links.length} articles`);
+    const token = await loginAdmin();
+    console.log("✅ PocketBase authenticated");
 
-        // Only scrape first 5 (oldest on page)
-        const selected = links.slice(0, 5);
+    const browser = await chromium.launch({ headless: false });
+    const page = await browser.newPage({
+        userAgent:
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120",
+    });
 
-        for (const url of selected) {
-            try {
-                console.log(`📄 Scraping ${url}`);
-                const article = await scrapeBlogPage(url);
-                await saveArticle(token, article);
-                console.log(`✅ Saved: ${article.title}`);
-            } catch (err) {
-                console.error(`❌ Failed for ${url}`, err.message);
-            }
+    console.log("🔍 Fetching blog links...");
+    const links = await fetchBlogLinks(page);
+    console.log(`✅ Found ${links.length} blogs`);
+
+    const selected = links.slice(0, 5); // oldest 5
+
+    for (const url of selected) {
+        try {
+            console.log(`📄 Scraping ${url}`);
+            const article = await scrapeBlog(page, url);
+
+            console.log(
+                `📝 Content length: ${article.original_content.length}`
+            );
+
+            await saveArticle(token, article);
+            console.log(`✅ Saved: ${article.title}`);
+        } catch (err) {
+            console.error(`❌ Failed for ${url}:`, err.message);
         }
-
-        console.log("🎉 All done.");
-    } catch (err) {
-        console.error("🔥 Fatal Error:", err.message);
     }
+
+    await browser.close();
+    console.log("🎉 Done");
 }
 
-run();
+run().catch(err => {
+    console.error("🔥 Fatal Error:", err);
+});
