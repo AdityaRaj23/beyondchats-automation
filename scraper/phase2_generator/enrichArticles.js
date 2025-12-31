@@ -76,7 +76,7 @@ async function searchAndScrape(page, query) {
             "https://google.serper.dev/search",
             {
                 q: query,
-                num: 5
+                num: 10
             },
             {
                 headers: {
@@ -101,8 +101,10 @@ async function searchAndScrape(page, query) {
 
     const scrapedData = [];
 
-    // Take top 2 and scrape content
-    for (const link of links.slice(0, 2)) {
+    // Iterate until we have 2 good references or run out of links
+    for (const link of links) {
+        if (scrapedData.length >= 2) break;
+
         try {
             console.log(`Scraping reference: ${link}`);
             try {
@@ -145,11 +147,16 @@ async function generateEnhancedContent(originalTitle, originalContent, reference
 You are an expert technical writer. Your task is to rewrite and enrich a blog post based on the ORIGINAL CONTENT and REFERENCE MATERIALS provided below.
 
 RULES:
-1.  Keep the tone professional yet engaging.
-2.  Use Markdown formatting (H2, H3, bullet points).
-3.  Synthesize information from the references to add depth, examples, or missing details to the original content.
-4.  Do NOT plagiarize. Rewrite in your own words.
-5.  At the very bottom, add a "References" section listing the reference URLs provided.
+1.  **Tone & Style**: Keep the tone professional, punches, and engaging. Avoid long, winding sentences. Use short paragraphs (2-3 sentences max) for better readability.
+2.  **Formatting**:
+    -   Use **bold text** to emphasize key takeaways and important terms.
+    -   Use bullet points and numbered lists frequently to break up text.
+    -   Use Markdown headers (H2, H3) to organize sections clearly.
+3.  **Structure**:
+    -   Start with a clear **Introduction** that hooks the reader.
+    -   End with a strong **Conclusion**.
+4.  **Content**: Synthesize information from the references to add depth. Do NOT plagiarize; rewrite in your own words.
+5.  **Citations**: At the very bottom, add a "References" section. **Format each reference as a bullet point in bold and italics** (e.g., - ***[Title](URL)***).
 
 ORIGINAL TITLE: ${originalTitle}
 

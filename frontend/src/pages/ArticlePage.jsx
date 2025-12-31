@@ -86,7 +86,7 @@ export default function ArticlePage() {
                 )}
 
                 {mode === 'enriched' && (
-                    <div className="bg-white p-8 rounded-2xl shadow-xl shadow-purple-50 border border-purple-100 ring-1 ring-purple-100 prose prose-lg max-w-none prose-headings:text-gray-900 prose-a:text-blue-600">
+                    <div className="bg-white p-8 rounded-2xl shadow-xl shadow-purple-50 border border-purple-100 ring-1 ring-purple-100 prose prose-lg max-w-none prose-headings:text-gray-900 prose-headings:font-bold prose-p:text-gray-600 prose-p:leading-relaxed prose-a:text-blue-600 prose-strong:text-blue-700 prose-strong:font-bold prose-blockquote:border-l-4 prose-blockquote:border-purple-500 prose-blockquote:bg-purple-50 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-li:text-gray-600">
                         <h2 className="text-purple-600 uppercase tracking-widest text-xs font-bold mb-4 flex items-center gap-2">
                             <Wand2 className="w-4 h-4" /> Enhanced Version
                         </h2>
