@@ -16,7 +16,7 @@ dotenv.config({ path: path.join(__dirname, "../../.env.local") });
 /* =========================
    CONSTANTS
 ========================= */
-const PB_URL = "http://127.0.0.1:8090";
+const PB_URL = process.env.PB_URL || "http://127.0.0.1:8090";
 const GOOGLE_SEARCH_URL = "https://www.google.com/search?q=";
 
 const turndownService = new TurndownService();

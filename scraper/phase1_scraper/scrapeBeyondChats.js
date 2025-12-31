@@ -16,7 +16,7 @@ dotenv.config({ path: path.join(__dirname, "../../.env.local") });
 /* =========================
    CONSTANTS
 ========================= */
-const PB_URL = "http://127.0.0.1:8090";
+const PB_URL = process.env.PB_URL || "http://127.0.0.1:8090";
 const LISTING_URL = "https://beyondchats.com/blogs/page/14/";
 const BASE_URL = "https://beyondchats.com";
 
