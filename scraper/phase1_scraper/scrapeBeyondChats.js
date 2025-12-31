@@ -111,7 +111,7 @@ async function scrapeBlog(page, url) {
         const blocks = [];
 
         root.querySelectorAll("h2, h3, h4, p, li").forEach(el => {
-            // ❌ Skip junk
+
             if (
                 el.closest(".has-social-placeholder") ||
                 el.closest(".wp-applause-container") ||
