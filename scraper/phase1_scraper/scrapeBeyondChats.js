@@ -4,6 +4,7 @@ import slugify from "slugify";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import TurndownService from "turndown";
 
 /* =========================
    ENV SETUP (ESM SAFE)
@@ -18,6 +19,13 @@ dotenv.config({ path: path.join(__dirname, "../../.env.local") });
 const PB_URL = "http://127.0.0.1:8090";
 const LISTING_URL = "https://beyondchats.com/blogs/page/14/";
 const BASE_URL = "https://beyondchats.com";
+
+const turndownService = new TurndownService({
+    headingStyle: "atx",
+    codeBlockStyle: "fenced",
+    bulletListMarker: "-",
+});
+
 
 /* =========================
    LOGIN TO POCKETBASE
@@ -69,18 +77,21 @@ async function scrapeBlog(page, url) {
         timeout: 60000,
     });
 
-    // ✅ Wait for the EXACT content container you shared
+    // ✅ Exact content container
     await page.waitForSelector(
         "#content .elementor-widget-theme-post-content",
         { timeout: 30000 }
     );
 
-    // Scroll once to ensure images/widgets load
+    // Scroll once for lazy-loaded content
     await page.evaluate(() => {
         window.scrollTo(0, document.body.scrollHeight);
     });
     await page.waitForTimeout(1500);
 
+    // =========================
+    // BROWSER CONTEXT
+    // =========================
     const article = await page.evaluate(() => {
         const title =
             document.querySelector("h1")?.innerText?.trim();
@@ -89,12 +100,18 @@ async function scrapeBlog(page, url) {
             "#content .elementor-widget-theme-post-content"
         );
 
-        if (!root) return { title, content: "" };
+        if (!root) {
+            return {
+                title,
+                text: "",
+                html: "",
+            };
+        }
 
         const blocks = [];
 
         root.querySelectorAll("h2, h3, h4, p, li").forEach(el => {
-            // ❌ Skip social/share/footer junk
+            // ❌ Skip junk
             if (
                 el.closest(".has-social-placeholder") ||
                 el.closest(".wp-applause-container") ||
@@ -114,18 +131,43 @@ async function scrapeBlog(page, url) {
 
         return {
             title,
-            content: blocks.join("\n\n"),
+            text: blocks.join("\n\n"),
+            html: root.innerHTML, // ✅ RAW HTML
         };
     });
 
-    if (!article.content || article.content.length < 500) {
-        throw new Error("Content extraction failed (empty or too short)");
+    // =========================
+    // VALIDATION
+    // =========================
+    if (!article.text || article.text.length < 500) {
+        throw new Error("Content extraction failed (too short)");
     }
 
+    // =========================
+    // HTML → MARKDOWN (NODE)
+    // =========================
+    const markdownContent = turndownService.turndown(article.html);
+
+    // =========================
+    // FINAL OBJECT
+    // =========================
     return {
         title: article.title,
-        slug: slugify(article.title, { lower: true, strict: true }),
-        original_content: article.content,
+        slug: slugify(article.title, {
+            lower: true,
+            strict: true,
+        }),
+
+        // Plain text (LLM / search)
+        original_content: article.text,
+
+        // Raw HTML (rendering)
+        html_content: article.html,
+
+        // Markdown (editing / LLM)
+        markdown_content: markdownContent,
+
+
         source_url: url,
         status: "original",
     };
