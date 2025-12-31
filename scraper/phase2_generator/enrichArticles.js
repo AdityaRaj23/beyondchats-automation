@@ -68,7 +68,7 @@ async function getArticlesToEnrich(token) {
 }
 
 async function searchAndScrape(page, query) {
-    console.log(`🔍 Searching Serper.dev for: "${query}"`);
+    console.log(`Searching Serper.dev for: "${query}"`);
 
     let links = [];
     try {
@@ -90,7 +90,7 @@ async function searchAndScrape(page, query) {
             links = response.data.organic.map(item => item.link);
         }
     } catch (error) {
-        console.error(" Serper API failed:", error.message);
+        console.error("Serper API failed:", error.message);
         return [];
     }
 
@@ -104,7 +104,7 @@ async function searchAndScrape(page, query) {
     // Take top 2 and scrape content
     for (const link of links.slice(0, 2)) {
         try {
-            console.log(`📄 Scraping reference: ${link}`);
+            console.log(`Scraping reference: ${link}`);
             try {
                 // Use a shorter timeout and continue on error
                 await page.goto(link, { waitUntil: "domcontentloaded", timeout: 20000 });
@@ -131,7 +131,7 @@ async function searchAndScrape(page, query) {
                 console.log(`   -> Content too short (${content.length} chars), skipping.`);
             }
         } catch (err) {
-            console.error(` Failed to scrape ${link}: ${err.message}`);
+            console.error(`Failed to scrape ${link}: ${err.message}`);
         }
     }
 
@@ -187,10 +187,10 @@ async function updateArticle(token, articleId, newContent) {
    MAIN
 ========================= */
 async function run() {
-    console.log("🚀 Starting verification & enrichment...");
+    console.log("Starting verification & enrichment...");
 
     const token = await loginAdmin();
-    console.log("✅ Authenticated");
+    console.log("Authenticated");
 
     const articles = await getArticlesToEnrich(token);
     console.log(`Found ${articles.length} articles to enrich.`);
@@ -212,12 +212,12 @@ async function run() {
             const references = await searchAndScrape(page, article.title);
 
             if (references.length === 0) {
-                console.log("⚠️ No references found. Skipping enrichment for this run.");
+                console.log("WARN: No references found. Skipping enrichment for this run.");
                 continue;
             }
 
             // 2. Generate
-            console.log("🤖 Generating enhanced content with Gemini...");
+            console.log("Generating enhanced content with Gemini...");
             const enhancedContent = await generateEnhancedContent(
                 article.title,
                 article.original_content,
@@ -225,17 +225,17 @@ async function run() {
             );
 
             // 3. Update
-            console.log("💾 Updating PocketBase...");
+            console.log("Updating PocketBase...");
             await updateArticle(token, article.id, enhancedContent);
-            console.log("✅ Success!");
+            console.log("Success!");
 
         } catch (err) {
-            console.error(` Error processing article ${article.id}:`, err);
+            console.error(`Error processing article ${article.id}:`, err);
         }
     }
 
     await browser.close();
-    console.log("\n🎉 All done.");
+    console.log("\nAll done.");
 }
 
 run();

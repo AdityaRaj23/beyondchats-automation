@@ -192,10 +192,10 @@ async function saveArticle(token, article) {
    MAIN RUNNER
 ========================= */
 async function run() {
-    console.log("🚀 Starting scraper");
+    console.log("Starting scraper");
 
     const token = await loginAdmin();
-    console.log("✅ PocketBase authenticated");
+    console.log("PocketBase authenticated");
 
     const browser = await chromium.launch({ headless: false });
     const page = await browser.newPage({
@@ -203,32 +203,32 @@ async function run() {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120",
     });
 
-    console.log("🔍 Fetching blog links...");
+    console.log("Fetching blog links...");
     const links = await fetchBlogLinks(page);
-    console.log(`✅ Found ${links.length} blogs`);
+    console.log(`Found ${links.length} blogs`);
 
     const selected = links.slice(0, 5); // oldest 5
 
     for (const url of selected) {
         try {
-            console.log(`📄 Scraping ${url}`);
+            console.log(`Scraping ${url}`);
             const article = await scrapeBlog(page, url);
 
             console.log(
-                `📝 Content length: ${article.original_content.length}`
+                `Content length: ${article.original_content.length}`
             );
 
             await saveArticle(token, article);
-            console.log(`✅ Saved: ${article.title}`);
+            console.log(`Saved: ${article.title}`);
         } catch (err) {
-            console.error(`❌ Failed for ${url}:`, err.message);
+            console.error(`Failed for ${url}:`, err.message);
         }
     }
 
     await browser.close();
-    console.log("🎉 Done");
+    console.log("Done");
 }
 
 run().catch(err => {
-    console.error("🔥 Fatal Error:", err);
+    console.error("Fatal Error:", err);
 });
