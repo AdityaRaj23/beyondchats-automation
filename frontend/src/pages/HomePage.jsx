@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import pb from '../lib/pocketbase';
+import { supabase } from '../lib/supabase';
 import { FileText, Wand2, ArrowRight } from 'lucide-react';
 import classNames from 'classnames';
 
@@ -11,12 +11,14 @@ export default function HomePage() {
     useEffect(() => {
         async function fetchArticles() {
             try {
-                // Fetch enriched articles first, then others
-                const result = await pb.collection('articles').getList(1, 20, {
-                    sort: '-created',
-                    requestKey: null,
-                });
-                setArticles(result.items);
+                const { data, error } = await supabase
+                    .from('articles')
+                    .select('*')
+                    .order('created_at', { ascending: false }) // Use created_at
+                    .limit(20);
+
+                if (error) throw error;
+                setArticles(data || []);
             } catch (e) {
                 console.error("Failed to fetch articles", e);
             } finally {
@@ -59,7 +61,7 @@ export default function HomePage() {
                                     {article.status}
                                 </span>
                                 <span className="text-xs text-gray-400">
-                                    {new Date(article.created).toLocaleDateString()}
+                                    {new Date(article.created_at).toLocaleDateString()}
                                 </span>
                             </div>
                             <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">

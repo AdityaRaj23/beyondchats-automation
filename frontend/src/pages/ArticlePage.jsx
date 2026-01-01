@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import pb from '../lib/pocketbase';
+import { supabase } from '../lib/supabase';
 import ReactMarkdown from 'react-markdown';
 import { ArrowLeft, SplitSquareHorizontal, FileText, Wand2 } from 'lucide-react';
 import classNames from 'classnames';
@@ -14,9 +14,16 @@ export default function ArticlePage() {
     useEffect(() => {
         async function fetchArticle() {
             try {
-                const record = await pb.collection('articles').getOne(id, { requestKey: null });
-                setArticle(record);
-                if (record.status !== 'enriched') {
+                const { data, error } = await supabase
+                    .from('articles')
+                    .select('*')
+                    .eq('id', id)
+                    .single();
+
+                if (error) throw error;
+
+                setArticle(data);
+                if (data.status !== 'enriched') {
                     setMode('original');
                 }
             } catch (e) {
@@ -49,7 +56,7 @@ export default function ArticlePage() {
                 <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 border-b pb-6">
                     <span>Source: <a href={article.source_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all">{article.source_url}</a></span>
                     <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                    <span>{new Date(article.created).toLocaleDateString()}</span>
+                    <span>{new Date(article.created_at).toLocaleDateString()}</span>
                 </div>
             </header>
 

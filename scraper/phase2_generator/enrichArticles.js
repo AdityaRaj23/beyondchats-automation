@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
 import axios from "axios";
+import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -16,7 +17,9 @@ dotenv.config({ path: path.join(__dirname, "../../.env.local") });
 /* =========================
    CONSTANTS
 ========================= */
-const PB_URL = process.env.PB_URL || "http://127.0.0.1:8090";
+const supabaseUrl = process.env.VITE_SUPABASE_URL || "http://127.0.0.1:54321";
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 const GOOGLE_SEARCH_URL = "https://www.google.com/search?q=";
 
 const turndownService = new TurndownService();
@@ -38,33 +41,16 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 /* =========================
    HELPERS
 ========================= */
-async function loginAdmin() {
-    const email = process.env.PB_ADMIN_EMAIL;
-    const password = process.env.PB_ADMIN_PASSWORD;
 
-    if (!email || !password) {
-        throw new Error("Missing PocketBase admin credentials");
-    }
+async function getArticlesToEnrich() {
+    const { data, error } = await supabase
+        .from('articles')
+        .select('*')
+        .eq('status', 'original')
+        .limit(5);
 
-    const res = await axios.post(
-        `${PB_URL}/api/collections/_superusers/auth-with-password`,
-        { identity: email, password }
-    );
-
-    return res.data.token;
-}
-async function getArticlesToEnrich(token) {
-    const res = await axios.get(
-        `${PB_URL}/api/collections/articles/records`,
-        {
-            params: {
-                filter: 'status = "original"',
-                perPage: 5, // Process 5 at a time
-            },
-            headers: { Authorization: token },
-        }
-    );
-    return res.data.items;
+    if (error) throw new Error(`Supabase error: ${error.message}`);
+    return data;
 }
 
 async function searchAndScrape(page, query) {
@@ -177,17 +163,16 @@ REFERENCE MATERIALS:
     return response.text();
 }
 
-async function updateArticle(token, articleId, newContent) {
-    await axios.patch(
-        `${PB_URL}/api/collections/articles/records/${articleId}`,
-        {
+async function updateArticle(articleId, newContent) {
+    const { error } = await supabase
+        .from('articles')
+        .update({
             generated_content: newContent,
-            status: "enriched",
-        },
-        {
-            headers: { Authorization: token },
-        }
-    );
+            status: 'enriched'
+        })
+        .eq('id', articleId);
+
+    if (error) throw new Error(`Supabase update error: ${error.message}`);
 }
 
 /* =========================
@@ -196,10 +181,9 @@ async function updateArticle(token, articleId, newContent) {
 async function run() {
     console.log("Starting verification & enrichment...");
 
-    const token = await loginAdmin();
-    console.log("Authenticated");
+    console.log("Authenticated (Service Role)");
 
-    const articles = await getArticlesToEnrich(token);
+    const articles = await getArticlesToEnrich();
     console.log(`Found ${articles.length} articles to enrich.`);
 
     if (articles.length === 0) {
@@ -232,8 +216,8 @@ async function run() {
             );
 
             // 3. Update
-            console.log("Updating PocketBase...");
-            await updateArticle(token, article.id, enhancedContent);
+            console.log("Updating Supabase...");
+            await updateArticle(article.id, enhancedContent);
             console.log("Success!");
 
         } catch (err) {

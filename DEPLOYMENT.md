@@ -9,14 +9,23 @@ Here are two recommended ways to deploy this stack.
 
 ---
 
-## Option 1: The "Serverless" Stack (Free/Easy) ☁️
-*Best for getting started quickly with minimal cost.*
+## Option 1: Supabase (Recommended) ⚡️
+*Best for scalability, built-in Auth, and easy management.*
 
-### 1. Backend: PocketHost.io (or Fly.io)
-[PocketHost](https://pockethost.io/) is a managed service for PocketBase.
-1.  Go to [pockethost.io](https://pockethost.io/) and create a new instance.
-2.  You will get a URL like `https://beyondchats-demo.pockethost.io`.
-3.  Go to the Admin UI (`/_/`) and set up your `articles` collection (Import your local schema if possible, or recreate the fields: `title`, `slug`, `original_content`, `generated_content`, `source_url`, `status`).
+**Full Guide:** See [SUPABASE_GUIDE.md](./SUPABASE_GUIDE.md)
+
+1.  **Backend**: [Supabase](https://supabase.com/)
+    - Stores `articles` and potentially auth users.
+    - Managed Postgres database.
+    - **Deployment**: Follow `SUPABASE_GUIDE.md` to link and push your schema.
+
+2.  **Frontend**: Vercel
+    - Push your code to **GitHub**.
+    - Go to [Vercel](https://vercel.com/) and "Add New Project".
+    - **Environment Variables**:
+         - `VITE_SUPABASE_URL`: Your Supabase Project URL.
+         - `VITE_SUPABASE_ANON_KEY`: Your Supabase Anon Key.
+
 
 ### 2. Frontend: Vercel
 1.  Push your code to **GitHub**.
@@ -48,15 +57,14 @@ on:
     - cron: '0 */6 * * *' # Every 6 hours
   workflow_dispatch: # Allow manual trigger
 
-jobs:
-  run-scripts:
-    runs-on: ubuntu-latest
-    env:
-      PB_URL: "https://beyondchats-demo.pockethost.io" # Your production DB
-      PB_ADMIN_EMAIL: ${{ secrets.PB_ADMIN_EMAIL }}
-      PB_ADMIN_PASSWORD: ${{ secrets.PB_ADMIN_PASSWORD }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+    jobs:
+      run-scripts:
+        runs-on: ubuntu-latest
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

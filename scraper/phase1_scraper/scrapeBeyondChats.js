@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import axios from "axios";
+import { createClient } from "@supabase/supabase-js";
 import slugify from "slugify";
 import dotenv from "dotenv";
 import path from "path";
@@ -16,7 +16,9 @@ dotenv.config({ path: path.join(__dirname, "../../.env.local") });
 /* =========================
    CONSTANTS
 ========================= */
-const PB_URL = process.env.PB_URL || "http://127.0.0.1:8090";
+const supabaseUrl = process.env.VITE_SUPABASE_URL || "http://127.0.0.1:54321";
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 const LISTING_URL = "https://beyondchats.com/blogs/page/14/";
 const BASE_URL = "https://beyondchats.com";
 
@@ -27,24 +29,7 @@ const turndownService = new TurndownService({
 });
 
 
-/* =========================
-   LOGIN TO POCKETBASE
-========================= */
-async function loginAdmin() {
-    const email = process.env.PB_ADMIN_EMAIL;
-    const password = process.env.PB_ADMIN_PASSWORD;
 
-    if (!email || !password) {
-        throw new Error("Missing PocketBase admin credentials");
-    }
-
-    const res = await axios.post(
-        `${PB_URL}/api/collections/_superusers/auth-with-password`,
-        { identity: email, password }
-    );
-
-    return res.data.token;
-}
 
 /* =========================
    SCRAPE BLOG LISTING
@@ -178,14 +163,14 @@ async function scrapeBlog(page, url) {
 /* =========================
    SAVE TO POCKETBASE
 ========================= */
-async function saveArticle(token, article) {
-    await axios.post(
-        `${PB_URL}/api/collections/articles/records`,
-        article,
-        {
-            headers: { Authorization: token },
-        }
-    );
+async function saveArticle(article) {
+    const { error } = await supabase
+        .from('articles')
+        .upsert(article, { onConflict: 'slug' });
+
+    if (error) {
+        throw new Error(`Supabase error: ${error.message}`);
+    }
 }
 
 /* =========================
@@ -194,8 +179,7 @@ async function saveArticle(token, article) {
 async function run() {
     console.log("Starting scraper");
 
-    const token = await loginAdmin();
-    console.log("PocketBase authenticated");
+    console.log("Supabase initialized");
 
     const browser = await chromium.launch({ headless: false });
     const page = await browser.newPage({
@@ -218,7 +202,7 @@ async function run() {
                 `Content length: ${article.original_content.length}`
             );
 
-            await saveArticle(token, article);
+            await saveArticle(article);
             console.log(`Saved: ${article.title}`);
         } catch (err) {
             console.error(`Failed for ${url}:`, err.message);
