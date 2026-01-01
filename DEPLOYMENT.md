@@ -20,11 +20,8 @@ Here are two recommended ways to deploy this stack.
     - **Deployment**: Follow `SUPABASE_GUIDE.md` to link and push your schema.
 
 2.  **Frontend**: Vercel
-    - Push your code to **GitHub**.
-    - Go to [Vercel](https://vercel.com/) and "Add New Project".
-    - **Environment Variables**:
-         - `VITE_SUPABASE_URL`: Your Supabase Project URL.
-         - `VITE_SUPABASE_ANON_KEY`: Your Supabase Anon Key.
+    - **Deployment**: Follow `VERCEL_GUIDE.md` to deploy your `supabase-version` branch.
+    - Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel.
 
 
 ### 2. Frontend: Vercel
