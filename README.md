@@ -3,7 +3,7 @@
 This project automates the process of scraping blog articles, enriching them with AI-generated insights, and presenting the "Original" vs "Enriched" versions in a modern React frontend.
 
 ## 🚀 Live Demo
-**[Insert Your Live Link Here]** (e.g., Vercel / Netlify deployment)
+https://beyondchats-automation.vercel.app/ (Vercel livendeployment)
 
 ---
 
@@ -85,11 +85,3 @@ npm run dev
 Open `http://localhost:5173` to see the application.
 
 ---
-
-## � Deployment
-For detailed instructions on how to deploy this project to production (using Vercel, PocketHost, or a VPS), please read **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
-
----
-
-## �📸 Screenshots
-*(Optional: Add screenshots of your UI here)*
